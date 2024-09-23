@@ -148,6 +148,8 @@ const TransactionOutForm = () => {
         return; // Stop further execution if the update fails
       }
     }
+
+    window.location.reload()
   
     // Now proceed to save the transaction
     // try {

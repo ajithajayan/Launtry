@@ -8,6 +8,7 @@ import { baseUrl } from "../../utils/constants/Constants";
 import ProductModal from "./ProductModal";
 import SupplierModal from "../Supplier/SupplierModal";
 import ReactToPrint from "react-to-print";
+import CustomerModal from "./CustomerModal";
 
 const TransactionOutForm = () => {
   const [transactionDetails, setTransactionDetails] = useState({
@@ -42,15 +43,16 @@ const TransactionOutForm = () => {
     }
   };
 
-  // Fetch invoice numbers from the API
+  const [nextInvoiceNumber, setNextInvoiceNumber] = useState("");
+
+  // In your fetch function
   const fetchInvoiceNumbers = async () => {
     try {
-      const response = await axios.get(`${baseUrl}store/invoice-numbers/`); // Adjust endpoint as needed
-      const invoiceData = response.data.supplier_invoice_numbers.map((invoiceNumber) => ({
-        label: invoiceNumber,
-        value: invoiceNumber,
-      }));
-      setInvoiceOptions(invoiceData);
+      const response = await axios.get(`${baseUrl}store/last-invoice-number/`);
+      const newInvoiceNumber = response.data.new_invoice_number;
+      setNextInvoiceNumber(newInvoiceNumber); // Set the next invoice number
+      // Optionally, set previous invoices if needed
+      setInvoiceOptions(/* previous invoice options */);
     } catch (error) {
       console.error("Error fetching invoice numbers:", error);
     }
@@ -83,7 +85,10 @@ const TransactionOutForm = () => {
   };
 
   const handleInvoiceChange = (selectedOption) => {
-    setTransactionDetails({ ...transactionDetails, customerInvoice: selectedOption });
+    setTransactionDetails({
+      ...transactionDetails,
+      customerInvoice: selectedOption,
+    });
   };
 
   const loadCustomerOptions = (inputValue) => {
@@ -130,7 +135,7 @@ const TransactionOutForm = () => {
       inward_stock_date: transactionDetails.purchaseDate,
       customer: transactionDetails.customer?.value || null,
       delivery_date: transactionDetails.customerDate,
-      supplier_invoice_number: transactionDetails.customerInvoice,
+      supplier_invoice_number: nextInvoiceNumber, // Use the next invoice number here
       transaction_details: transactionDetails.products.map((product) => ({
         product: product.id,
         delivery_date: product.deliveryDate,
@@ -143,7 +148,7 @@ const TransactionOutForm = () => {
 
     try {
       await axios.post(
-        `${baseUrl}store/product-out-transactions/`, // Adjust endpoint for transaction out
+        `${baseUrl}store/product-in-transactions/`, // Adjust endpoint for transaction out
         transformedData
       );
       Swal.fire("Success", "Transaction saved successfully", "success");
@@ -152,6 +157,8 @@ const TransactionOutForm = () => {
       console.error("Error saving transaction:", error);
       Swal.fire("Error", "Failed to save the transaction", "error");
     }
+
+    window.location.reload();
   };
 
   return (
@@ -223,15 +230,24 @@ const TransactionOutForm = () => {
             <label className="block text-sm font-medium text-gray-700">
               Invoice Number
             </label>
-            <AsyncSelect
-              cacheOptions
-              loadOptions={loadInvoiceOptions}
-              onChange={handleInvoiceChange}
-              isClearable
-              placeholder="Search Invoice Number"
-              className="mt-1 block w-full"
-              defaultOptions={invoiceOptions}
+            {/* Read-only field for the next invoice number */}
+            <input
+              type="text"
+              value={nextInvoiceNumber} // This should be the state holding the fetched number
+              readOnly
+              className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
             />
+
+            {/* AsyncSelect for previous invoice numbers */}
+            {/* <AsyncSelect
+              cacheOptions
+              loadOptions={loadInvoiceOptions} // Function to load previous invoice numbers
+              onChange={handleInvoiceChange} // Handle the selection of previous invoice numbers
+              isClearable
+              placeholder="Search Previous Invoice Numbers"
+              className="mt-1 block w-full"
+              defaultOptions={invoiceOptions} // Set this to your previous invoice numbers
+            /> */}
           </div>
         </div>
 
@@ -262,13 +278,20 @@ const TransactionOutForm = () => {
               </thead>
               <tbody className="text-gray-600 text-sm">
                 {transactionDetails.products.map((product, index) => (
-                  <tr key={index} className="border-b border-gray-200 hover:bg-gray-100">
+                  <tr
+                    key={index}
+                    className="border-b border-gray-200 hover:bg-gray-100"
+                  >
                     <td className="py-3 px-6 text-left">{index + 1}</td>
-                    <td className="py-3 px-6 text-left">{product.productCode}</td>
+                    <td className="py-3 px-6 text-left">
+                      {product.productCode}
+                    </td>
                     <td className="py-3 px-6 text-left">{product.name}</td>
                     <td className="py-3 px-6 text-left">{product.quantity}</td>
                     <td className="py-3 px-6 text-left">{product.price}</td>
-                    <td className="py-3 px-6 text-left">{(product.price * product.quantity).toFixed(2)}</td>
+                    <td className="py-3 px-6 text-left">
+                      {(product.price * product.quantity).toFixed(2)}
+                    </td>
                     <td className="py-3 px-6 text-left">
                       <button
                         onClick={() => handleRemoveProduct(index)}
@@ -293,7 +316,9 @@ const TransactionOutForm = () => {
 
         {/* Remarks */}
         <div className="mt-4">
-          <label className="block text-sm font-medium text-gray-700">Remarks</label>
+          <label className="block text-sm font-medium text-gray-700">
+            Remarks
+          </label>
           <textarea
             value={transactionDetails.remarks}
             onChange={(e) =>
@@ -325,16 +350,28 @@ const TransactionOutForm = () => {
 
         {/* Print Component */}
         <ReactToPrint
-          trigger={() => <button style={{ display: 'none' }}>Print this out!</button>}
+          trigger={() => (
+            <button style={{ display: "none" }}>Print this out!</button>
+          )}
           content={() => componentRef.current}
         />
       </div>
 
       {/* Product Modal */}
-      {showModal && <ProductModal onAddProduct={handleAddProduct} onClose={() => setShowModal(false)} />}
-      
+      {showModal && (
+        <ProductModal
+          setShowModal={setShowModal}
+          addProduct={handleAddProduct} // Make sure this function is defined
+          defaultDeliveryDate={transactionDetails.customerDate}
+        />
+      )}
+
       {/* Supplier Modal */}
-      {showCustomerModal && <SupplierModal onClose={() => setShowCustomerModal(false)} />}
+      {showCustomerModal && (
+        <CustomerModal
+          setShowModal={setShowCustomerModal}
+        />
+      )}
     </div>
   );
 };

@@ -25,9 +25,9 @@ class DashboardView(APIView):
         completed_orders = ProductInTransaction.objects.filter(is_delivered=True).count()
 
         # Calculate total revenue from completed transactions
-        total_revenue = ProductInTransaction.objects.filter(is_delivered=True).aggregate(
-            total=Sum('transaction_details__price', default=0)  # Assuming 'price' is the field in transaction_details
-        )['total'] or 0.0
+        total_revenue = ProductInTransactionDetail.objects.filter(
+            transaction__is_delivered=True
+        ).aggregate(total=Sum('total'))['total'] or 0.0
 
         return Response({
             'total_orders': total_orders,

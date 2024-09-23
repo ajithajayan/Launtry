@@ -7,7 +7,6 @@ import axios from 'axios';
 import Cookies from 'js-cookie';
 import { useEffect, useRef, useState } from 'react';
 
-// Create Axios instance
 export default function Dashboard() {
   const [adminData, setAdminData] = useState({
     total_orders: 0,
@@ -16,26 +15,29 @@ export default function Dashboard() {
     completed_orders: 0,
   });
 
+  const [loading, setLoading] = useState(true);  // Loading state
+  const [error, setError] = useState(null);  // Error state
+
   useEffect(() => {
     const fetchAdminData = async () => {
       try {
-        const accessToken = Cookies.get('access');
-        if (!accessToken) {
-          throw new Error('Access token not found');
-        }
+        // const accessToken = Cookies.get('access');
+        // if (!accessToken) {
+        //   throw new Error('Access token not found');
+        // }
 
-        // Set the authorization header for the request
         const response = await axios.get(`${baseUrl}/store/dashboard`, {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-          },
+          // headers: {
+          //   Authorization: `Bearer ${accessToken}`,
+          // },
         });
 
-        // Update the state with the response data
         setAdminData(response.data);
-        console.log(response.data);
       } catch (error) {
         console.error('Error fetching admin data:', error);
+        setError('Failed to load dashboard data');
+      } finally {
+        setLoading(false);  // Always stop loading after fetch
       }
     };
 
@@ -61,45 +63,51 @@ export default function Dashboard() {
         Hi, Welcome back 👋
       </Typography>
 
-      <div ref={summaryRef}>
-        <Grid container spacing={3}>
-          <Grid xs={12} sm={6} md={3}>
-            <AppWidgetSummary
-              title="Total Orders"
-              total={adminData.total_orders}
-              color="success"
-              icon={<img alt="icon" src="/assets/icons/glass/ic_glass_bag.png" />}
-            />
-          </Grid>
+      {loading ? (
+        <Typography variant="h6">Loading data...</Typography>
+      ) : error ? (
+        <Typography variant="h6" color="error">{error}</Typography>
+      ) : (
+        <div ref={summaryRef}>
+          <Grid container spacing={3}>
+            <Grid xs={12} sm={6} md={3}>
+              <AppWidgetSummary
+                title="Total Orders"
+                total={adminData.total_orders}
+                color="success"
+                icon={<img alt="icon" src="/assets/icons/glass/ic_glass_bag.png" />}
+              />
+            </Grid>
 
-          <Grid xs={12} sm={6} md={3}>
-            <AppWidgetSummary
-              title="Total Revenue"
-              total={`$${adminData.total_revenue.toFixed(2)}`}
-              color="info"
-              icon={<img alt="icon" src="/assets/icons/glass/ic_glass_users.png" />}
-            />
-          </Grid>
+            <Grid xs={12} sm={6} md={3}>
+              <AppWidgetSummary
+                title="Total Revenue"
+                total={`$${adminData.total_revenue.toFixed(2)}`}
+                color="info"
+                icon={<img alt="icon" src="/assets/icons/glass/ic_glass_users.png" />}
+              />
+            </Grid>
 
-          <Grid xs={12} sm={6} md={3}>
-            <AppWidgetSummary
-              title="Pending Orders"
-              total={adminData.pending_orders}
-              color="warning"
-              icon={<img alt="icon" src="/assets/icons/glass/ic_glass_users.png" />}
-            />
-          </Grid>
+            <Grid xs={12} sm={6} md={3}>
+              <AppWidgetSummary
+                title="Pending Orders"
+                total={adminData.pending_orders}
+                color="warning"
+                icon={<img alt="icon" src="/assets/icons/glass/ic_glass_users.png" />}
+              />
+            </Grid>
 
-          <Grid xs={12} sm={6} md={3}>
-            <AppWidgetSummary
-              title="Completed Orders"
-              total={adminData.completed_orders}
-              color="error"
-              icon={<img alt="icon" src="/assets/icons/glass/ic_glass_message.png" />}
-            />
+            <Grid xs={12} sm={6} md={3}>
+              <AppWidgetSummary
+                title="Completed Orders"
+                total={adminData.completed_orders}
+                color="error"
+                icon={<img alt="icon" src="/assets/icons/glass/ic_glass_message.png" />}
+              />
+            </Grid>
           </Grid>
-        </Grid>
-      </div>
+        </div>
+      )}
 
       <button
         onClick={handlePrint}

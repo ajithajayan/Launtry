@@ -10,11 +10,11 @@ const ProductModal = ({ setShowModal, addProduct, defaultDeliveryDate }) => {
     brandName: "",
     categoryName: "",
     barcode: "",
-    deliveryDate: defaultDeliveryDate || "", // Set default delivery date
+    deliveryDate: defaultDeliveryDate || "",
     quantity: 0,
-    price: 0, // Initialize price
+    price: 0,
     id: null,
-    image: "", // Initialize image URL
+    image: "",
   });
 
   const loadProductOptions = async (inputValue) => {
@@ -30,15 +30,16 @@ const ProductModal = ({ setShowModal, addProduct, defaultDeliveryDate }) => {
       const response = await axios.get(`${baseUrl}store/products/${selectedOption.value}/`);
       const product = response.data;
       setProductDetails({
-        ...productDetails,
         productCode: product.product_code,
         name: product.name,
         brandName: product.brand_name,
         categoryName: product.category_name,
         barcode: product.barcode,
-        price: product.price || 0, // Set price from the product data
-        image: product.image || "", // Set image URL from the product data
+        price: product.price || 0,
+        image: product.image || "",
         id: product.id,
+        deliveryDate: productDetails.deliveryDate,
+        quantity: productDetails.quantity,
       });
     }
   };
@@ -52,20 +53,22 @@ const ProductModal = ({ setShowModal, addProduct, defaultDeliveryDate }) => {
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
       <div className="bg-white w-full max-w-lg mx-auto p-6 rounded-lg">
         <h2 className="text-2xl font-bold mb-6">Add Product</h2>
-        <div className="grid grid-cols-1 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700">Product</label>
-            <AsyncSelect
-              loadOptions={loadProductOptions}
-              onChange={handleProductChange}
-              placeholder="Search Product Code or Name"
-              className="mt-1 block w-full"
-            />
-          </div>
+        
+        {/* Product Field on a Separate Line */}
+        <div className="mb-4">
+          <label className="block text-sm font-medium text-gray-700">Product</label>
+          <AsyncSelect
+            loadOptions={loadProductOptions}
+            onChange={handleProductChange}
+            placeholder="Search Product Code or Name"
+            className="mt-1 block w-full"
+          />
+        </div>
 
-          {/* Image Display */}
+        {/* Grid for Other Fields */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {productDetails.image && (
-            <div className="flex flex-col items-center">
+            <div className="flex flex-col items-center col-span-1 md:col-span-3">
               <img
                 src={productDetails.image}
                 alt={productDetails.name}
@@ -74,8 +77,8 @@ const ProductModal = ({ setShowModal, addProduct, defaultDeliveryDate }) => {
               <span className="text-sm text-gray-600">{productDetails.name}</span>
             </div>
           )}
-
-          <div>
+          
+          <div className="col-span-1">
             <label className="block text-sm font-medium text-gray-700">Brand</label>
             <input
               type="text"
@@ -84,7 +87,7 @@ const ProductModal = ({ setShowModal, addProduct, defaultDeliveryDate }) => {
               className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
             />
           </div>
-          <div>
+          <div className="col-span-1">
             <label className="block text-sm font-medium text-gray-700">Category</label>
             <input
               type="text"
@@ -93,7 +96,7 @@ const ProductModal = ({ setShowModal, addProduct, defaultDeliveryDate }) => {
               className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
             />
           </div>
-          <div>
+          <div className="col-span-1">
             <label className="block text-sm font-medium text-gray-700">Barcode</label>
             <input
               type="text"
@@ -102,7 +105,7 @@ const ProductModal = ({ setShowModal, addProduct, defaultDeliveryDate }) => {
               className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
             />
           </div>
-          <div>
+          <div className="col-span-1">
             <label className="block text-sm font-medium text-gray-700">Delivery Date</label>
             <input
               type="date"
@@ -111,7 +114,7 @@ const ProductModal = ({ setShowModal, addProduct, defaultDeliveryDate }) => {
               className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
             />
           </div>
-          <div>
+          <div className="col-span-1">
             <label className="block text-sm font-medium text-gray-700">Quantity</label>
             <input
               type="number"
@@ -120,16 +123,17 @@ const ProductModal = ({ setShowModal, addProduct, defaultDeliveryDate }) => {
               className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
             />
           </div>
-          <div>
+          <div className="col-span-1">
             <label className="block text-sm font-medium text-gray-700">Price</label>
             <input
               type="number"
               value={productDetails.price}
-              readOnly // Set to readOnly if you don't want the user to edit it
+              readOnly
               className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
             />
           </div>
         </div>
+        
         <div className="mt-6 flex justify-end space-x-4">
           <button
             className="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600"
