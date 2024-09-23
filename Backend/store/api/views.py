@@ -542,15 +542,14 @@ class LastInvoiceNumberView(APIView):
         # print(last_transaction)
         
         if last_transaction:
-            last_invoice_number = last_transaction.supplier_invoice_number
-            # Extract the numeric part and increment it
-            # invoice_number = int(last_invoice_number.split('-')[1]) + 1
-            # new_invoice_number = f"INV-{invoice_number}"
+            last_invoice_number = int(last_transaction.supplier_invoice_number)
+            last_invoice_number += 1
+            last_invoice =str(last_invoice_number)
         else:
             # No transactions exist, start with a default invoice number
-            last_invoice_number = "12121215"
+            last_invoice = "12121215"
 
-        return Response({"new_invoice_number": last_invoice_number})
+        return Response({"new_invoice_number": last_invoice})
     
 from rest_framework.exceptions import NotFound
 class ProductOutTransactionListView(generics.ListAPIView):
