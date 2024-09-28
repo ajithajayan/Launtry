@@ -1,11 +1,11 @@
 from django.urls import path
 from .views import (
-    BranchWiseReportView, DailyReportView, DashboardView, ExpiredProductReportView, InventoryListView, InwardQtyReportView, LastInvoiceNumberView, OutwardQtyReportView, ProductDetailsReportView, ProductInTransactionUpdateView, ProductOutTransactionListCreateView, SupplierListCreateView, SupplierDetailView,
+    DashboardView, InventoryListView, ProductInTransactionUpdateView, ProductOutTransactionListCreateView, ReportView, SupplierListCreateView, SupplierDetailView,
     CategoryListCreateView, CategoryDetailView,
     BrandListCreateView, BrandDetailView,
     ProductListCreateView, ProductDetailView, GetTotalStockView, ProductCodeSearchView,
     BranchListCreateView, BranchDetailView,
-    ProductInTransactionListCreateView, ProductInTransactionDetailView,ExpiredProductListView, RemoveExpiredProductView, RemoveDefectiveProductView, SupplierWiseReportView, TrackedExpiredProductListView, TransactionView
+    ProductInTransactionListCreateView, ProductInTransactionDetailView,ExpiredProductListView, RemoveExpiredProductView, RemoveDefectiveProductView, TrackedExpiredProductListView, TransactionView
 )
 
 urlpatterns = [
@@ -42,7 +42,7 @@ urlpatterns = [
     # Inventory
     path('inventory/', InventoryListView.as_view(), name='inventory-list'),
 
-    path('last-invoice-number/', LastInvoiceNumberView.as_view(), name='last-invoice-number'),
+
     
   
    # Fetch all supplier_invoice_numbers
@@ -63,13 +63,6 @@ urlpatterns = [
 
 
     # Reports form the admin side
-
-    path('reports/inward-qty/', InwardQtyReportView.as_view(), name='inward-qty-report'),
-    path('reports/outward-qty/', OutwardQtyReportView.as_view(), name='outward-qty-report'),
-    path('reports/branch-wise/', BranchWiseReportView.as_view(), name='branch-wise-report'),
-    path('reports/expired-products/', ExpiredProductReportView.as_view(), name='expired-product-report'),
-    path('reports/supplier-wise/', SupplierWiseReportView.as_view(), name='supplier-wise-report'),
-    path('reports/product-details/', ProductDetailsReportView.as_view(), name='product-details-report'),
-    path('reports/daily/', DailyReportView.as_view(), name='daily-report'),
+     path('reports/<str:report_type>/', ReportView.as_view(), name='report_view'),
 
 ]

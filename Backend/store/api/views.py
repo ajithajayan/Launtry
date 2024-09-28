@@ -6,7 +6,7 @@ from store.models import (
     ProductInTransaction, ProductInTransactionDetail, TotalStock, ProductOutTransaction, ExpiredProduct, DefectiveProduct
 )
 from .serializers import (
-    BranchWiseReportSerializer, ExpiredProductReportSerializer, ExpiredProductSerializer, FullTransactionDetailSerializer, InwardQtyReportSerializer, OutwardQtyReportSerializer, ProductDetailsReportSerializer, SupplierSerializer, CategorySerializer, BrandSerializer, ProductSerializer, BranchSerializer,
+    BranchWiseReportSerializer, ExpiredProductReportSerializer, ExpiredProductSerializer, FullTransactionDetailSerializer, InwardQtyReportSerializer, OutwardQtyReportSerializer, ProductDetailsReportSerializer, ProductInTransactionDetailSerializer, SupplierSerializer, CategorySerializer, BrandSerializer, ProductSerializer, BranchSerializer,
     ProductInTransactionSerializer, InventorySerializer, ProductOutTransactionSerializer, DefectiveProductSerializer, SupplierWiseReportSerializer
 )
 from rest_framework.views import APIView
@@ -403,161 +403,68 @@ class RemoveExpiredProductView(APIView):
 
 #********************************** Reports **************************************** 
 
-class InwardQtyReportView(APIView):
-    def get(self, request, *args, **kwargs):
-        transactions = ProductInTransactionDetail.objects.select_related(
-            'transaction', 'product', 'transaction__supplier'
-        ).all()
-        data = InwardQtyReportSerializer(transactions, many=True).data
-        return Response(data)
-    
-
-class OutwardQtyReportView(APIView):
-    def get(self, request, *args, **kwargs):
-        transactions = ProductOutTransactionDetail.objects.select_related(
-            'transaction', 'product', 'transaction__branch'
-        ).all()
-        data = OutwardQtyReportSerializer(transactions, many=True).data
-        return Response(data)
-
-class BranchWiseReportView(APIView):
-    def get(self, request, *args, **kwargs):
-        branch_code = request.query_params.get('branch_code', None)
-        if branch_code:
-            transactions = ProductOutTransactionDetail.objects.select_related(
-                'transaction', 'product', 'transaction__branch'
-            ).filter(transaction__branch__branch_code=branch_code)
+class ReportView(APIView):
+    def get(self, request, report_type=None):
+        if report_type == 'transaction-in':
+            return self.get_transaction_in_report(request)
+        elif report_type == 'transaction-out':
+            return self.get_transaction_out_report(request)
+        elif report_type == 'sales':
+            return self.get_sales_report(request)
+        elif report_type == 'daily':
+            return self.get_daily_report(request)
         else:
-            transactions = ProductOutTransactionDetail.objects.select_related(
-                'transaction', 'product', 'transaction__branch'
-            ).all()
+            return Response({'error': 'Invalid report type'}, status=400)
 
-        serializer = BranchWiseReportSerializer(transactions, many=True)
-        return Response(serializer.data)
+    def get_transaction_in_report(self, request):
+        in_transactions = ProductInTransaction.objects.filter(is_delivered=False)
+        serializer = FullTransactionDetailSerializer(in_transactions, many=True)
+        return Response({
+            'transaction_in': serializer.data
+        }, status=200)
 
+    def get_transaction_out_report(self, request):
+        out_transactions = ProductInTransaction.objects.filter(is_delivered=True)
+        serializer = FullTransactionDetailSerializer(out_transactions, many=True)
+        return Response({
+            'transaction_out': serializer.data
+        }, status=200)
 
-class ExpiredProductReportView(APIView):
-    def get(self, request, *args, **kwargs):
-        expired_products = ExpiredProduct.objects.select_related(
-            'product', 'product__category', 'product__brand'
-        ).all()
-        data = ExpiredProductReportSerializer(expired_products, many=True).data
-        return Response(data)
+    def get_sales_report(self, request):
+        start_date = request.GET.get('start_date')
+        end_date = request.GET.get('end_date')
 
-class SupplierWiseReportView(APIView):
-    def get(self, request, *args, **kwargs):
-        supplier_name = request.query_params.get('supplier_name', None)
-        if supplier_name:
-            transactions = ProductInTransactionDetail.objects.select_related(
-                'transaction', 'product', 'transaction__supplier'
-            ).filter(transaction__supplier__name=supplier_name)
-        else:
-            transactions = ProductInTransactionDetail.objects.select_related(
-                'transaction', 'product', 'transaction__supplier'
-            ).all()
-            
-        serializer = SupplierWiseReportSerializer(transactions, many=True)
-        return Response(serializer.data)
+        if not start_date or not end_date:
+            return Response({'error': 'Please provide both start_date and end_date'}, status=400)
 
+        sales_transactions = ProductInTransactionDetail.objects.filter(
+            transaction__is_delivered=True,
+            transaction__inward_stock_date__range=[start_date, end_date]
+        )
+        total_sales = sales_transactions.aggregate(Sum('total'))['total__sum'] or 0
 
+        serializer = ProductInTransactionDetailSerializer(sales_transactions, many=True)
+        return Response({
+            'total_sales': total_sales,
+            'sales_details': serializer.data
+        }, status=200)
 
-class ProductDetailsReportView(APIView):
-    def get(self, request, *args, **kwargs):
-        transactions = ProductInTransactionDetail.objects.select_related(
-            'transaction', 'product', 'transaction__supplier'
-        ).all()
-        data = ProductDetailsReportSerializer(transactions, many=True).data
-        return Response(data)
+    def get_daily_report(self, request):
+        today = timezone.now().date()
 
+        transactions_in = ProductInTransaction.objects.filter(inward_stock_date=today)
+        transactions_out = ProductInTransaction.objects.filter(delivery_date=today, is_delivered=True)
 
+        sales_today = ProductInTransactionDetail.objects.filter(
+            transaction__is_delivered=True,
+            transaction__delivery_date=today
+        ).aggregate(Sum('total'))['total__sum'] or 0
 
-import pandas as pd
-from django.http import HttpResponse
-from django.views import View
-from django.utils.timezone import now
+        in_serializer = FullTransactionDetailSerializer(transactions_in, many=True)
+        out_serializer = FullTransactionDetailSerializer(transactions_out, many=True)
 
-
-class DailyReportView(View):
-    def get(self, request, *args, **kwargs):
-        # Get the current date or use a query parameter to specify a date
-        report_date = request.GET.get('date', now().date())
-
-        # Generate the report
-        file_path = self.generate_daily_report(report_date)
-
-        # Create the HTTP response with the Excel file
-        with open(file_path, 'rb') as f:
-            response = HttpResponse(f.read(), content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-            response['Content-Disposition'] = f'attachment; filename="daily_report_{report_date}.xlsx"'
-
-        return response
-
-    def generate_daily_report(self, report_date):
-        # Fetch the inward and outward transactions from the database
-        inward_transactions = ProductInTransactionDetail.objects.filter(transaction__purchase_date=report_date)
-        outward_transactions = ProductOutTransactionDetail.objects.filter(transaction__date=report_date)
-
-        # Convert queryset to DataFrame
-        inward_df = pd.DataFrame(list(inward_transactions.values(
-            'transaction__purchase_date', 'transaction__supplier_invoice_number', 'transaction__supplier__name', 
-            'product__name', 'quantity')))
-        inward_df.columns = ['Date', 'Supplier Invoice', 'Supplier Name', 'Product Details', 'Quantity']
-
-        outward_df = pd.DataFrame(list(outward_transactions.values(
-            'transaction__date', 'transaction__transfer_invoice_number', 'transaction__branch__name', 
-            'transaction__branch__branch_code', 'product__name', 'qty_requested')))
-        outward_df.columns = ['Date', 'Transfer Invoice Number', 'Branch Name', 'Branch Code', 'Product Details', 'Quantity']
-
-        # Calculate totals
-        inward_total = inward_df['Quantity'].sum()
-        outward_total = outward_df['Quantity'].sum()
-
-        # Add totals to DataFrame using pd.concat
-        inward_total_df = pd.DataFrame([{
-            'Date': '', 'Supplier Invoice': '', 'Supplier Name': 'TOTAL QTY', 
-            'Product Details': '', 'Quantity': inward_total
-        }])
-        
-        outward_total_df = pd.DataFrame([{
-            'Date': '', 'Transfer Invoice Number': '', 'Branch Name': 'TOTAL QTY', 
-            'Branch Code': '', 'Product Details': '', 'Quantity': outward_total
-        }])
-        
-        # Concatenate the total row to the DataFrame
-        inward_df = pd.concat([inward_df, inward_total_df], ignore_index=True)
-        outward_df = pd.concat([outward_df, outward_total_df], ignore_index=True)
-
-        # Create Excel file with two sheets
-        file_path = f'daily_report_{report_date}.xlsx'
-        with pd.ExcelWriter(file_path, engine='xlsxwriter') as writer:
-            inward_df.to_excel(writer, sheet_name='Inward', index=False)
-            outward_df.to_excel(writer, sheet_name='Outward', index=False)
-
-        return file_path
-
-
-class LastInvoiceNumberView(APIView):
-    def get(self, request):
-        last_transaction = ProductInTransaction.objects.order_by('-id').first()
-        # print(last_transaction)
-        
-        if last_transaction:
-            last_invoice_number = int(last_transaction.supplier_invoice_number)
-            last_invoice_number += 1
-            last_invoice =str(last_invoice_number)
-        else:
-            # No transactions exist, start with a default invoice number
-            last_invoice = "12121215"
-
-        return Response({"new_invoice_number": last_invoice})
-    
-from rest_framework.exceptions import NotFound
-class ProductOutTransactionListView(generics.ListAPIView):
-    serializer_class = ProductOutTransactionSerializer
-
-    def get_queryset(self):
-        invoice_number = self.kwargs['invoice_number']
-        queryset = ProductOutTransaction.objects.filter(supplier_invoice_number=invoice_number)
-        if not queryset.exists():
-            raise NotFound("Transaction not found.")
-        return queryset
+        return Response({
+            'transactions_in_today': in_serializer.data,
+            'transactions_out_today': out_serializer.data,
+            'total_sales_today': sales_today
+        }, status=200)
